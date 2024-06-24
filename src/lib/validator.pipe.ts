@@ -1,6 +1,7 @@
 import {
   ArgumentMetadata,
-  BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   PipeTransform,
 } from '@nestjs/common';
@@ -15,13 +16,13 @@ export class ValidationPipe implements PipeTransform<any> {
     }
     const object = plainToInstance(metatype, value);
     const errors = await validate(object);
-
     if (errors.length > 0) {
-      console.log('Validation errors:', errors);
       this.logConstraintsErrors(errors);
-      throw new BadRequestException('VALIDATION_FAILED');
-    }
+      console.log('Validation errors:', errors);
+      const response = this.getPropertyAndConstraintMessage(errors);
 
+      throw new HttpException(response, HttpStatus.BAD_REQUEST);
+    }
     return value;
   }
 
@@ -39,6 +40,21 @@ export class ValidationPipe implements PipeTransform<any> {
         if (property) console.log({ property });
         console.log('VALIDATOR_ERROR_CONSTRAINTS:', error.constraints);
       }
+    });
+  }
+  private getPropertyAndConstraintMessage(errors: any) {
+    return errors.map((error) => {
+      const constraints = error.constraints;
+      let message = '';
+      for (const key in constraints) {
+        if (constraints.hasOwnProperty(key)) {
+          message = constraints[key];
+        }
+      }
+      return {
+        property: error.property,
+        message,
+      };
     });
   }
 }
